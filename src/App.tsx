@@ -66,36 +66,33 @@ export default function CalculadoraDivisas() {
   const [tasaUsdt, setTasaUsdt] = useState<number | null>(null);
   const [cargando, setCargando] = useState<boolean>(true);
   
-  // Variables del formulario de conversión
-  const [monto, setMonto] = useState<string>('');
-  const [monedaOrigen, setMonedaOrigen] = useState<'USD' | 'BS'>('USD');
-  
-  // Resultados convertidos re-calculados instantáneamente
-  const [resultadoBcv, setResultadoBcv] = useState<number>(0);
-  const [resultadoUsdt, setResultadoUsdt] = useState<number>(0);
+  // Variables de selección de referencia de tasa activa
+  const [fuenteSeleccionada, setFuenteSeleccionada] = useState<'bcv' | 'usdt'>('bcv');
+
+  // Dos campos de texto independientes para la conversión bidireccional limpia y sin loops
+  const [montoUSD, setMontoUSD] = useState<string>('');
+  const [montoBS, setMontoBS] = useState<string>('');
 
   // Variables para la sección de histórico (datos crudos y loader del historial)
   const [historicoDatos, setHistoricoDatos] = useState<HistoricoDolar[]>([]);
   const [cargandoHistorico, setCargandoHistorico] = useState<boolean>(false);
 
-  // Estados visuales para los botones de "copiar al portapapeles"
-  const [copiedBcv, setCopiedBcv] = useState<boolean>(false);
-  const [copiedUsdt, setCopiedUsdt] = useState<boolean>(false);
+  // Estados independientes para copiar al portapapeles sin mezclar interfaz
+  const [copiedUSD, setCopiedUSD] = useState<boolean>(false);
+  const [copiedBS, setCopiedBS] = useState<boolean>(false);
 
   /**
    * Manejador para copiar resultados al portapapeles.
-   * Modifica el botón a un ícono de check durante 2 segundos.
    */
-  const handleCopy = (value: number, type: 'bcv' | 'usdt') => {
-    const formattedValue = value.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits:2});
-    navigator.clipboard.writeText(formattedValue);
-    
-    if (type === 'bcv') {
-      setCopiedBcv(true);
-      setTimeout(() => setCopiedBcv(false), 2000);
+  const handleCopyInput = (val: string, type: 'usd' | 'bs') => {
+    if (!val) return;
+    navigator.clipboard.writeText(val);
+    if (type === 'usd') {
+      setCopiedUSD(true);
+      setTimeout(() => setCopiedUSD(false), 2000);
     } else {
-      setCopiedUsdt(true);
-      setTimeout(() => setCopiedUsdt(false), 2000);
+      setCopiedBS(true);
+      setTimeout(() => setCopiedBS(false), 2000);
     }
   };
 
@@ -109,7 +106,7 @@ export default function CalculadoraDivisas() {
         const bcv = await obtenerTasaBCV();
         setTasaBcv(bcv);
       } catch (error) {
-        setTasaBcv(null); // Indicador de fallback o error en la interfaz
+        setTasaBcv(null);
       }
 
       // Intentamos cargar la tasa Binance Proxy
@@ -117,18 +114,15 @@ export default function CalculadoraDivisas() {
         const usdt = await obtenerTasaBinance();
         setTasaUsdt(usdt);
       } catch (error) {
-        setTasaUsdt(null); // Indicador de fallback o error en la interfaz
+        setTasaUsdt(null);
       }
       
-      // Una vez ambas promesas finalizan (o fallan), apagamos el 'loader' global.
       setCargando(false);
     }
     cargarTasas();
   }, []);
 
   // Efecto 2: Carga perezosa del histórico
-  // Solo se carga el histórico si el usuario navega a la pestaña activa 'historico'
-  // y si los datos aún no han sido cargados.
   useEffect(() => {
     async function cargarHist() {
       if (activeTab === 'historico' && historicoDatos.length === 0) {
@@ -145,46 +139,94 @@ export default function CalculadoraDivisas() {
     cargarHist();
   }, [activeTab, historicoDatos.length]);
 
-  // Efecto 3: Motor Reactivo de Cálculos
-  // Se gatilla siempre que cambia el monto, la moneda seleccionada o si las tasas se actualizan en la red.
+  // Efecto 3: Inicializar formulario con un valor de 100 USD representativo una vez cargadas las tasas
   useEffect(() => {
-    const valorMonto = Number(monto) || 0;
+    if (!cargando) {
+      const uRate = fuenteSeleccionada === 'usdt' 
+        ? (tasaUsdt || 44.50) 
+        : (tasaBcv || 40.20);
+      
+      setMontoUSD("100");
+      setMontoBS(Number((100 * uRate).toFixed(2)).toString());
+    }
+  }, [cargando]);
+
+  // --- MANEJADORES DIRECTOS (SIN LOOP Y ALTAMENTE OPTIMIZADOS) ---
+
+  const handleUSDChange = (val: string) => {
+    const cleanVal = val.replace(',', '.');
+    setMontoUSD(cleanVal);
     
-    // 1er Bloque: Motor del Dólar BCV
-    if (tasaBcv !== null) {
-      if (monedaOrigen === 'USD') {
-         // Si estoy calculando divisas -> bs, multiplico el valor por la tasa respectiva
-         setResultadoBcv(valorMonto * tasaBcv);
-      } else {
-         // Si el usuario introduce bs e invirtió el sistema, calculo la división proporcional
-         setResultadoBcv(valorMonto / tasaBcv);
-      }
-    } else {
-      setResultadoBcv(0);
+    if (cleanVal === '') {
+      setMontoBS('');
+      return;
     }
+    
+    const num = parseFloat(cleanVal);
+    if (!isNaN(num)) {
+      const activeRate = fuenteSeleccionada === 'usdt' 
+        ? (tasaUsdt || 44.50) 
+        : (tasaBcv || 40.20);
 
-    // 2do Bloque: Motor del Dólar Binance USDT
-    if (tasaUsdt !== null) {
-      if (monedaOrigen === 'USD') {
-         setResultadoUsdt(valorMonto * tasaUsdt);
-      } else {
-         setResultadoUsdt(valorMonto / tasaUsdt);
-      }
+      const computed = num * activeRate;
+      setMontoBS(Number(computed.toFixed(2)).toString());
     } else {
-      setResultadoUsdt(0);
+      setMontoBS('');
     }
-  }, [monto, tasaBcv, tasaUsdt, monedaOrigen]);
-
-  // Funciones y Derivaciones
-  const swapCurrencies = () => {
-    setMonedaOrigen(prev => prev === 'BS' ? 'USD' : 'BS');
   };
 
-  // Variable de utilidad para saber qué sufijo vamos a proyectar ('BS' o 'USD' / 'USDT')
-  const isConvertingToBs = monedaOrigen === 'USD';
-  
-  // Brecha cambiaria: Porcentaje diferencial entra la Tasa USDT(Mayor) y la Tasa BCV(Menor)
+  const handleBSChange = (val: string) => {
+    const cleanVal = val.replace(',', '.');
+    setMontoBS(cleanVal);
+    
+    if (cleanVal === '') {
+      setMontoUSD('');
+      return;
+    }
+    
+    const num = parseFloat(cleanVal);
+    if (!isNaN(num)) {
+      const activeRate = fuenteSeleccionada === 'usdt' 
+        ? (tasaUsdt || 44.50) 
+        : (tasaBcv || 40.20);
+
+      if (activeRate > 0) {
+        const computed = num / activeRate;
+        setMontoUSD(Number(computed.toFixed(2)).toString());
+      } else {
+        setMontoUSD('');
+      }
+    } else {
+      setMontoUSD('');
+    }
+  };
+
+  const handleFuenteSeleccionadaChange = (nuevaFuente: 'bcv' | 'usdt') => {
+    setFuenteSeleccionada(nuevaFuente);
+    
+    let activeRate = 0;
+    if (nuevaFuente === 'bcv') {
+      activeRate = tasaBcv || 40.20;
+    } else if (nuevaFuente === 'usdt') {
+      activeRate = tasaUsdt || 44.50;
+    }
+    
+    // Mantenemos el monto de Divisa (USD) fijo y recalculamos Bolívares instantáneamente
+    const numUSD = parseFloat(montoUSD);
+    if (!isNaN(numUSD) && activeRate > 0) {
+      const computed = numUSD * activeRate;
+      setMontoBS(Number(computed.toFixed(2)).toString());
+    } else {
+      setMontoBS('');
+    }
+  };
+
+  // Brecha cambiaria: Porcentaje diferencial entre la Tasa USDT (Mercado) y la Tasa BCV (Oficial)
   const brechaCambiaria = (tasaBcv && tasaUsdt) ? ((tasaUsdt / tasaBcv) - 1) * 100 : 0;
+
+  // Letreros visuales del tipo de moneda elegida
+  const foreignSymbol = '$';
+  const foreignSign = '$';
 
   return (
     <div className="dark bg-background text-on-surface font-body-md min-h-screen flex flex-col items-center">
@@ -192,7 +234,7 @@ export default function CalculadoraDivisas() {
         <div className="flex flex-col justify-center py-2 md:py-0 md:h-16 px-4 md:px-stack-lg w-full max-w-container-max mx-auto relative">
           {/* Fila principal */}
           <div className="flex justify-between items-center w-full">
-            <div className="font-headline-md text-title-md md:text-title-lg font-bold text-primary tracking-tighter shrink-0 z-10 w-[120px] md:w-auto">BOLIVAR FLOW</div>
+            <div className="font-headline-md text-title-md md:text-title-lg font-bold text-primary tracking-tighter shrink-0 z-10 w-[120px] md:w-auto">DOLAR-FLOW</div>
             
             {/* Tasas Desktop */}
             <div className="hidden md:flex items-center justify-center gap-4 text-sm font-medium absolute left-0 right-0 pointer-events-none">
@@ -227,14 +269,14 @@ export default function CalculadoraDivisas() {
           </div>
           
           {/* Tasas Mobile (se muestran debajo del header principal) */}
-          <div className="flex md:hidden items-center justify-between gap-2 w-full mt-2 text-[11px] font-medium border-t border-white/5 pt-2 px-1">
-             <div className="flex items-center gap-1.5 text-white flex-1 justify-start">
+          <div className="flex md:hidden items-center justify-between gap-1 w-full mt-2 text-[10px] font-medium border-t border-white/5 pt-2 px-1">
+             <div className="flex items-center gap-1 text-white flex-1 justify-start">
                 <span className="w-1.5 h-1.5 rounded-full bg-primary inline-block"></span>
                 <span className="text-on-surface-variant">BCV:</span> 
                 <span className="font-bold">{tasaBcv !== null ? tasaBcv.toFixed(2) : "..."}</span>
              </div>
              <div className="w-[1px] h-3 bg-white/10"></div>
-             <div className="flex items-center gap-1.5 text-white flex-1 justify-end">
+             <div className="flex items-center gap-1 text-white flex-1 justify-end">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block"></span>
                 <span className="text-on-surface-variant">USDT:</span> 
                 <span className="font-bold">{tasaUsdt !== null ? tasaUsdt.toFixed(2) : "..."}</span>
@@ -249,7 +291,7 @@ export default function CalculadoraDivisas() {
             {/* Visual Carga */}
             {cargando && (
               <div className="mb-6 py-2 px-6 rounded-full glass-card border-primary/20 text-primary font-bold animate-pulse text-center self-center shrink-0">
-                Cargando tasas...
+                Sincronizando tasas bancarias...
               </div>
             )}
 
@@ -257,107 +299,130 @@ export default function CalculadoraDivisas() {
             <section className="w-full flex-grow flex flex-col glass-card rounded-2xl md:rounded-3xl p-5 md:p-8 relative overflow-hidden shrink-0">
               <div className="absolute -top-24 -right-24 w-64 h-64 bg-primary/5 blur-[100px] rounded-full pointer-events-none"></div>
               
-              <div className="relative z-10 flex flex-col justify-center gap-4 sm:gap-6 h-full">
+              <div className="relative z-10 flex flex-col justify-center gap-5 sm:gap-6 h-full">
                 <div className="text-center shrink-0">
                   <h1 className="text-title-lg sm:text-headline-md font-headline-md text-on-surface mb-1">Calculadora Simultánea</h1>
                   <p className="text-[11px] sm:text-label-sm font-label-sm text-on-surface-variant">
-                    Comparativa automática en tiempo real
+                    Conversión bidireccional en tiempo real libre de loops
                   </p>
                 </div>
 
-                {/* Sección de Entrada */}
-                <div className="flex flex-col gap-1 sm:gap-2 relative shrink-0">
-                  <div className="bg-surface-container-low/30 rounded-2xl p-4 sm:p-5 border border-white/5 focus-within:border-primary/40 transition-all z-10">
-                    <label className="text-label-sm font-label-sm text-on-surface-variant block mb-1 sm:mb-2">Monto a Convertir</label>
-                    <div className="flex items-center justify-between gap-1.5 sm:gap-2">
-                      <input 
-                        type="number" 
-                        value={monto} 
-                        onChange={(e) => setMonto(e.target.value)}
-                        placeholder="0.00"
-                        className="bg-transparent border-none p-0 text-headline-md sm:text-display-lg font-display-lg text-primary w-full focus:ring-0 placeholder:text-surface-container-highest focus:outline-none min-w-0"
-                      />
-                      <div className="flex items-center gap-1 sm:gap-2 bg-surface-container-high px-2 sm:px-3 py-1.5 sm:py-3 rounded-xl border border-white/5 shrink-0">
-                        <select 
-                          value={monedaOrigen} 
-                          onChange={(e) => setMonedaOrigen(e.target.value as any)}
-                          className="bg-transparent border-none p-0 m-0 text-white font-bold text-sm sm:text-base font-mono-data focus:ring-0 focus:outline-none cursor-pointer"
-                        >
-                          <option value="USD" className="bg-background text-white">USD</option>
-                          <option value="BS" className="bg-background text-white">BS</option>
-                        </select>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Swap Button */}
-                  <div className="flex justify-center -my-3 sm:-my-4 z-20 relative">
-                    <button 
-                      onClick={swapCurrencies}
-                      className="w-10 h-10 flex-shrink-0 sm:w-12 sm:h-12 bg-surface-container-highest border-[3px] border-background rounded-full flex items-center justify-center text-primary hover:scale-110 active:scale-95 transition-all shadow-xl focus:outline-none"
-                      title="Invertir Monedas"
+                {/* MENÚ DE SELECCIÓN DE PRECIO / REFERENCIA */}
+                <div className="flex flex-col gap-2 shrink-0">
+                  <span className="text-[10px] uppercase font-bold tracking-wider text-on-surface-variant/80 ml-1">
+                    Seleccionar Precio Activo
+                  </span>
+                  <div className="grid grid-cols-2 gap-1.5 sm:gap-2 bg-white/5 p-1 rounded-xl border border-white/5">
+                    <button
+                      onClick={() => handleFuenteSeleccionadaChange('bcv')}
+                      className={`flex flex-col items-center justify-center py-2 px-1 text-center rounded-lg transition-all focus:outline-none ${
+                        fuenteSeleccionada === 'bcv'
+                          ? 'bg-primary/20 border border-primary/30 text-primary font-bold shadow-md shadow-primary/5'
+                          : 'hover:bg-white/5 border border-transparent text-on-surface-variant'
+                      }`}
                     >
-                      <span className="material-symbols-outlined font-bold text-[20px] sm:text-[24px]">swap_vert</span>
+                      <span className="text-[11px] sm:text-xs">Dólar BCV</span>
+                      <span className="text-[12px] sm:text-sm font-semibold tracking-tight">
+                        {tasaBcv !== null ? tasaBcv.toFixed(2) : "..."} <span className="text-[8px] font-normal">Bs</span>
+                      </span>
+                    </button>
+
+                    <button
+                      onClick={() => handleFuenteSeleccionadaChange('usdt')}
+                      className={`flex flex-col items-center justify-center py-2 px-1 text-center rounded-lg transition-all focus:outline-none ${
+                        fuenteSeleccionada === 'usdt'
+                          ? 'bg-emerald-400/20 border border-emerald-400/30 text-emerald-400 font-bold shadow-md shadow-emerald-400/5'
+                          : 'hover:bg-white/5 border border-transparent text-on-surface-variant'
+                      }`}
+                    >
+                      <span className="text-[11px] sm:text-xs">USDT Binance</span>
+                      <span className="text-[12px] sm:text-sm font-semibold tracking-tight">
+                        {tasaUsdt !== null ? tasaUsdt.toFixed(2) : "..."} <span className="text-[8px] font-normal">Bs</span>
+                      </span>
                     </button>
                   </div>
                 </div>
 
-                {/* Sección de Resultados Comparados Simultáneos */}
-                <div className="pt-3 sm:pt-4 border-t border-white/5 shrink-0">
-                   <h3 className="text-[11px] sm:text-label-sm font-label-sm text-on-surface-variant uppercase mb-2 sm:mb-4 text-center">
-                     Resultados
-                   </h3>
-                   
-                   <div className="flex flex-col gap-2 sm:gap-4">
-                     <div className="flex items-center justify-between px-3 py-2 sm:px-5 sm:py-4 bg-surface-container-low/50 rounded-xl sm:rounded-2xl border border-white/5">
-                        <span className="text-label-sm sm:text-title-sm font-medium text-white flex items-center gap-1.5 sm:gap-2">
-                            <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-primary inline-block shrink-0"></span> Dólar BCV
-                        </span>
-                        <div className="flex items-center gap-1.5 sm:gap-3">
-                            <span className="text-title-sm sm:text-headline-md font-headline-md text-white font-bold text-right truncate">
-                                {resultadoBcv > 0 ? resultadoBcv.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits:2}) : "0.00"} 
-                                <span className="text-on-surface-variant text-[11px] sm:text-title-sm font-normal ml-1 sm:ml-2">
-                                  {isConvertingToBs ? 'BS' : 'USD'}
-                                </span>
-                            </span>
-                            <button 
-                              onClick={() => handleCopy(resultadoBcv, 'bcv')}
-                              className="text-on-surface-variant hover:text-primary transition-colors focus:outline-none flex items-center justify-center p-1 sm:p-2 bg-white/5 rounded-lg shrink-0"
-                              title="Copiar resultado"
-                            >
-                              {copiedBcv ? <Check size={14} className="text-emerald-400 sm:w-5 sm:h-5" /> : <Copy size={14} className="sm:w-5 sm:h-5" />}
-                            </button>
-                        </div>
-                     </div>
+                {/* FORMULARIO DE CONVERSIÓN BIDIRECCIONAL */}
+                <div className="flex flex-col gap-3 relative shrink-0">
+                  
+                  {/* Bloque Divisa (USD / EUR) */}
+                  <div className="bg-surface-container-low/40 rounded-2xl p-4 sm:p-5 border border-white/5 focus-within:border-primary/40 transition-all flex flex-col gap-1">
+                    <div className="flex justify-between items-center text-label-sm text-on-surface-variant font-medium">
+                      <span>Monto en Divisa ({foreignSymbol})</span>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/5 text-primary">
+                        1 {foreignSymbol} = {(fuenteSeleccionada === 'usdt' ? (tasaUsdt || 44.50) : (tasaBcv || 40.20)).toFixed(2)} Bs
+                      </span>
+                    </div>
 
-                     <div className="flex items-center justify-between px-3 py-2 sm:px-5 sm:py-4 bg-surface-container-low/50 rounded-xl sm:rounded-2xl border border-white/5">
-                        <span className="text-label-sm sm:text-title-sm font-medium text-white flex items-center gap-1.5 sm:gap-2">
-                            <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-emerald-400 inline-block shrink-0"></span> Dólar USDT
+                    <div className="flex items-center justify-between gap-2 mt-1">
+                      <div className="flex items-center gap-1.5 sm:gap-2 w-full">
+                        <span className="text-xl sm:text-2xl font-bold text-primary font-mono-data shrink-0">
+                          {foreignSign}
                         </span>
-                        <div className="flex items-center gap-1.5 sm:gap-3">
-                            <span className="text-title-sm sm:text-headline-md font-headline-md text-white font-bold text-right truncate">
-                                {resultadoUsdt > 0 ? resultadoUsdt.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits:2}) : "0.00"} 
-                                <span className="text-on-surface-variant text-[11px] sm:text-title-sm font-normal ml-1 sm:ml-2">
-                                  {isConvertingToBs ? 'BS' : 'USDT'}
-                                </span>
-                            </span>
-                            <button 
-                              onClick={() => handleCopy(resultadoUsdt, 'usdt')}
-                              className="text-on-surface-variant hover:text-emerald-400 transition-colors focus:outline-none flex items-center justify-center p-1 sm:p-2 bg-white/5 rounded-lg shrink-0"
-                              title="Copiar resultado"
-                            >
-                              {copiedUsdt ? <Check size={14} className="text-emerald-400 sm:w-5 sm:h-5" /> : <Copy size={14} className="sm:w-5 sm:h-5" />}
-                            </button>
-                        </div>
-                     </div>
-                   </div>
-                   
-                   {tasaBcv !== null && tasaUsdt !== null && (
-                     <p className="mt-4 sm:mt-5 text-center text-[11px] sm:text-label-sm text-primary font-medium tracking-wide">
-                        Brecha Cambiaria Analítica: <strong className="font-bold">{brechaCambiaria.toFixed(2)}%</strong>
-                     </p>
-                   )}
+                        <input 
+                          type="number" 
+                          value={montoUSD} 
+                          onChange={(e) => handleUSDChange(e.target.value)}
+                          placeholder="0.00"
+                          className="bg-transparent border-none p-0 text-2xl sm:text-3xl font-display-lg text-white w-full focus:ring-0 placeholder:text-surface-container-highest focus:outline-none min-w-0"
+                        />
+                      </div>
+                      
+                      <button 
+                        onClick={() => handleCopyInput(montoUSD, 'usd')}
+                        className="text-on-surface-variant hover:text-primary transition-colors focus:outline-none bg-white/5 hover:bg-white/10 p-2 rounded-xl shrink-0"
+                        title="Copiar cifra de divisa"
+                        disabled={!montoUSD}
+                      >
+                        {copiedUSD ? <Check size={16} className="text-emerald-400" /> : <Copy size={16} />}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Bloque Bolívares (VES) */}
+                  <div className="bg-surface-container-low/40 rounded-2xl p-4 sm:p-5 border border-white/5 focus-within:border-emerald-400/40 transition-all flex flex-col gap-1">
+                    <div className="text-label-sm text-on-surface-variant font-medium block">
+                      Monto en Bolívares (VES)
+                    </div>
+
+                    <div className="flex items-center justify-between gap-2 mt-1">
+                      <div className="flex items-center gap-1.5 sm:gap-2 w-full">
+                        <span className="text-xl sm:text-2xl font-bold text-emerald-400 font-mono-data shrink-0">
+                          Bs
+                        </span>
+                        <input 
+                          type="number" 
+                          value={montoBS} 
+                          onChange={(e) => handleBSChange(e.target.value)}
+                          placeholder="0.00"
+                          className="bg-transparent border-none p-0 text-2xl sm:text-3xl font-display-lg text-white w-full focus:ring-0 placeholder:text-surface-container-highest focus:outline-none min-w-0"
+                        />
+                      </div>
+
+                      <button 
+                        onClick={() => handleCopyInput(montoBS, 'bs')}
+                        className="text-on-surface-variant hover:text-emerald-400 transition-colors focus:outline-none bg-white/5 hover:bg-white/10 p-2 rounded-xl shrink-0"
+                        title="Copiar cifra en bolívares"
+                        disabled={!montoBS}
+                      >
+                        {copiedBS ? <Check size={16} className="text-emerald-400" /> : <Copy size={16} />}
+                      </button>
+                    </div>
+                  </div>
+
                 </div>
+
+                {/* DETALLE ANALÍTICO EXTRA */}
+                {tasaBcv !== null && tasaUsdt !== null && (
+                  <div className="pt-2 border-t border-white/5 shrink-0 flex justify-between items-center text-[11px] sm:text-label-sm">
+                    <span className="text-on-surface-variant">Brecha Cambiaria BCV vs. USDT:</span> 
+                    <span className="font-bold text-primary tracking-wide">
+                      {brechaCambiaria.toFixed(2)}%
+                    </span>
+                  </div>
+                )}
+
               </div>
             </section>
           </div>
@@ -423,7 +488,7 @@ export default function CalculadoraDivisas() {
 
       <footer className="w-full py-4 mt-auto border-t border-white/5 bg-background shrink-0">
         <div className="flex justify-center items-center px-4 w-full">
-          <p className="font-label-sm text-[10px] sm:text-xs text-on-surface-variant text-center">© 2026 Bolivar Flow. Aplicación estricta y sin librerías externas de diseño, utilizando Fetch APIs nativas.</p>
+          <p className="font-label-sm text-[10px] sm:text-xs text-on-surface-variant text-center">© 2026 DOLAR-FLOW. Aplicación estricta y sin librerías externas de diseño, utilizando Fetch APIs nativas.</p>
         </div>
       </footer>
     </div>

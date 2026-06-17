@@ -1,6 +1,6 @@
-# Bolívar Flow
+# DOLAR-FLOW
 
-Bolívar Flow es una plataforma web minimalista e interactiva diseñada para la consulta, simulación y monitoreo en tiempo real de tipos de cambio en Venezuela. La aplicación permite contrastar de manera simultánea devaluaciones e intercambios monetarios entre el Bolívar (VES), la tasa oficial del Banco Central de Venezuela (BCV) y la cotización implícita del mercado a través de Binance P2P (USDT).
+DOLAR-FLOW es una plataforma web minimalista e interactiva diseñada para la consulta, simulación y monitoreo en tiempo real de tipos de cambio en Venezuela. La aplicación permite contrastar de manera simultánea devaluaciones e intercambios monetarios entre el Bolívar (VES), la tasa oficial del Banco Central de Venezuela (BCV) y la cotización implícita del mercado a través de Binance P2P (USDT).
 
 ---
 
