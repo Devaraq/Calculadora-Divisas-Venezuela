@@ -1,0 +1,6 @@
+{
+  "name": "Calculadora de Divisas VE",
+  "description": "Calculadora de divisas con tasas de BCV y USDT de Binance P2P",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
