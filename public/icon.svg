@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <!-- Background Gradient -->
+    <radialGradient id="bgGrad" cx="50%" cy="40%" r="60%">
+      <stop offset="0%" stop-color="#1e293b"/>
+      <stop offset="100%" stop-color="#0f172a"/>
+    </radialGradient>
+    
+    <!-- Neon Green Glow Filter -->
+    <filter id="neonGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="10" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+
+    <!-- Emerald Accent Gradient -->
+    <linearGradient id="emeraldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#34d399"/>
+      <stop offset="100%" stop-color="#10b981"/>
+    </linearGradient>
+
+    <!-- Neon Green Accents -->
+    <linearGradient id="neonGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#4ade80"/>
+      <stop offset="100%" stop-color="#059669"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Base Card Background with rounded corners -->
+  <rect width="512" height="512" rx="128" fill="url(#bgGrad)"/>
+  
+  <!-- Outer subtle circular ring representing "Flow" -->
+  <circle cx="256" cy="256" r="190" fill="none" stroke="currentColor" stroke-width="8" stroke-dasharray="16 12" class="text-emerald-500/10" stroke-linecap="round" opacity="0.15"/>
+  <circle cx="256" cy="256" r="160" fill="none" stroke="url(#emeraldGrad)" stroke-width="1.5" opacity="0.25"/>
+
+  <!-- Styled decorative flowing waves in background -->
+  <path d="M 120 320 C 180 340, 220 280, 256 256 C 292 232, 332 172, 392 192" fill="none" stroke="url(#emeraldGrad)" stroke-width="4" stroke-linecap="round" opacity="0.1" />
+  <path d="M 120 340 C 180 360, 220 300, 256 276 C 292 252, 332 192, 392 212" fill="none" stroke="url(#emeraldGrad)" stroke-width="4" stroke-linecap="round" opacity="0.05" />
+
+  <!-- Center Circle Base -->
+  <circle cx="256" cy="256" r="110" fill="#0b0f19" stroke="#1e293b" stroke-width="6"/>
+
+  <!-- Centered Stylized $ (Dollar Sign) with glowing emerald gradient -->
+  <g filter="url(#neonGlow)">
+    <!-- Dollar Vertical Line -->
+    <rect x="244" y="105" width="24" height="302" rx="12" fill="url(#neonGrad)" />
+    
+    <!-- Dollar S curve (Stylized) -->
+    <path d="M 330 190 
+             C 330 145, 180 135, 180 200 
+             C 180 260, 332 245, 332 315 
+             C 332 385, 182 365, 182 320" 
+          fill="none" 
+          stroke="url(#neonGrad)" 
+          stroke-width="36" 
+          stroke-linecap="round" 
+          stroke-linejoin="round" />
+  </g>
+
+  <!-- Tiny status dot for 'Live rates' look -->
+  <circle cx="340" cy="160" r="14" fill="#10b981" filter="url(#neonGlow)"/>
+</svg>
